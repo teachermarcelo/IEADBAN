@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Home, Users, Landmark, BookOpen, Book, Menu, X, Calendar, Layers, 
-  Camera, BookType, HeartHandshake, Waves, GraduationCap, Cloud, RefreshCw, Loader2
+  Camera, BookType, HeartHandshake, Waves, GraduationCap, Cloud, RefreshCw, Loader2, WifiOff
 } from 'lucide-react';
 import { Member, Congregation, Department, Event, MediaItem, WeeklyCult, ChurchNotice, TabType, NewConvert, Baptism, CarouselItem, Course } from './types';
 import { syncToCloud, subscribeToCloud, monitorConnection } from './services/firebase';
@@ -39,10 +39,9 @@ const App: React.FC = () => {
   const [weeklyCults, setWeeklyCults] = useState<WeeklyCult[]>([]);
   const [notices, setNotices] = useState<ChurchNotice[]>([]);
 
-  // Ref para controlar se já recebemos o primeiro "OK" da nuvem
   const hasLoadedFromCloud = useRef<Record<string, boolean>>({});
 
-  // 1. Carregar Cache Local e Monitorar Conexão
+  // 1. Carregar Cache Local e Iniciar Monitoramento
   useEffect(() => {
     const keys = ['members', 'converts', 'baptisms', 'carousel', 'congs', 'deps', 'events', 'media', 'cults', 'notices', 'courses'];
     keys.forEach(key => {
@@ -63,20 +62,29 @@ const App: React.FC = () => {
             case 'notices': setNotices(parsed); break;
             case 'courses': setCourses(parsed); break;
           }
-        } catch (e) { console.error("Erro ao ler cache local:", e); }
+        } catch (e) {}
       }
     });
 
-    monitorConnection((isOnline) => {
-      setSyncStatus(prev => isOnline ? (prev === 'loading' ? 'loading' : 'online') : 'offline');
+    const unsubscribeConn = monitorConnection((isOnline) => {
+      if (isOnline) {
+        setSyncStatus('online');
+      } else {
+        // Dá uma margem de 5 segundos antes de dizer que está offline de fato
+        setTimeout(() => {
+          setSyncStatus(prev => prev === 'online' ? 'offline' : prev);
+        }, 5000);
+      }
     });
+
+    return () => unsubscribeConn();
   }, []);
 
-  // 2. Escutar Nuvem (Real-time) - A verdade absoluta vem daqui
+  // 2. Sincronização em Tempo Real
   useEffect(() => {
     const createSetter = (key: string, setter: Function) => (data: any) => {
       hasLoadedFromCloud.current[key] = true;
-      setter(data || []); // Se a nuvem estiver vazia, garante array vazio mas marca como carregado
+      setter(data || []);
       setSyncStatus('online');
     };
 
@@ -97,18 +105,14 @@ const App: React.FC = () => {
     return () => unsubscribes.forEach(unsub => unsub?.());
   }, []);
 
-  // 3. Função Global de Atualização (Nuvem em 1º Lugar)
   const handleGlobalUpdate = async (key: string, data: any) => {
-    // SEGURANÇA: Se a nuvem ainda não respondeu para essa chave, não deixamos salvar
-    // Isso evita que um PC que acabou de abrir o app e ainda não baixou os dados, limpe a nuvem
-    if (!hasLoadedFromCloud.current[key] && syncStatus !== 'offline') {
-      console.warn(`Aguardando sincronização inicial de ${key}...`);
+    if (!hasLoadedFromCloud.current[key] && syncStatus === 'loading') {
+      alert("Aguarde a conexão com a nuvem ser estabelecida...");
       return;
     }
 
     setSyncStatus('syncing');
     
-    // Atualização Otimista na UI
     switch(key) {
       case 'members': setMembers(data); break;
       case 'converts': setNewConverts(data); break;
@@ -144,7 +148,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-[#F8FAFC]">
-      {/* Sidebar */}
       <aside className={`fixed md:sticky top-0 left-0 h-screen w-[260px] bg-white border-r border-slate-100 z-[110] transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 flex flex-col`}>
         <div className="p-6 flex flex-col h-full">
           <div className="flex items-center gap-3 mb-10 px-2">
@@ -162,7 +165,7 @@ const App: React.FC = () => {
                   syncStatus === 'syncing' || syncStatus === 'loading' ? 'text-amber-500' : 
                   syncStatus === 'offline' ? 'text-rose-500' : 'text-slate-400'
                 }`}>
-                  {syncStatus === 'loading' ? 'Carregando...' : syncStatus === 'syncing' ? 'Sincronizando...' : syncStatus === 'offline' ? 'Desconectado' : 'Nuvem Conectada'}
+                  {syncStatus === 'loading' ? 'Conectando...' : syncStatus === 'syncing' ? 'Sincronizando...' : syncStatus === 'offline' ? 'Desconectado' : 'Nuvem Ativa'}
                 </span>
               </div>
             </div>
@@ -188,14 +191,13 @@ const App: React.FC = () => {
                </div>
                <div>
                  <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Central de Dados</p>
-                 <p className="text-[10px] font-bold text-slate-600 leading-tight">Backup Unificado</p>
+                 <p className="text-[10px] font-bold text-slate-600 leading-tight">Sincronização Ativa</p>
                </div>
             </div>
           </div>
         </div>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 min-h-screen">
         <header className="md:hidden bg-white border-b border-slate-100 p-4 flex justify-between items-center sticky top-0 z-50">
           <div className="flex items-center gap-2">
@@ -203,6 +205,7 @@ const App: React.FC = () => {
             <span className="font-black text-slate-800 tracking-tighter">IEADBAN</span>
           </div>
           <div className="flex items-center gap-3">
+            {syncStatus === 'offline' && <WifiOff size={18} className="text-rose-500" />}
             {(syncStatus === 'syncing' || syncStatus === 'loading') && <RefreshCw size={18} className="animate-spin text-amber-500" />}
             <button onClick={() => setIsSidebarOpen(true)} className="p-2 bg-slate-50 rounded-lg text-slate-600"><Menu size={22}/></button>
           </div>
@@ -210,9 +213,12 @@ const App: React.FC = () => {
 
         <div className="flex-1 p-4 md:p-8 lg:p-12 max-w-7xl mx-auto w-full">
           {syncStatus === 'loading' && (
-            <div className="fixed inset-0 bg-slate-50/50 backdrop-blur-sm z-[200] flex flex-col items-center justify-center space-y-4">
-              <Loader2 className="animate-spin text-blue-600" size={48} />
-              <p className="text-slate-500 font-black uppercase text-xs tracking-[0.2em]">Sincronizando com a Nuvem...</p>
+            <div className="fixed inset-0 bg-slate-50/70 backdrop-blur-md z-[200] flex flex-col items-center justify-center space-y-4">
+              <div className="bg-white p-8 rounded-[40px] shadow-2xl flex flex-col items-center border border-slate-100">
+                <Loader2 className="animate-spin text-blue-600 mb-4" size={48} />
+                <p className="text-slate-800 font-black uppercase text-xs tracking-[0.2em]">Estabelecendo Conexão...</p>
+                <p className="text-slate-400 text-[10px] mt-2 font-bold">Aguardando resposta do servidor IEADBAN</p>
+              </div>
             </div>
           )}
 

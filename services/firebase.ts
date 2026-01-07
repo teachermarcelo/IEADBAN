@@ -1,6 +1,6 @@
 
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getDatabase, ref, set, onValue, off, Database } from "firebase/database";
+import { getDatabase, ref, set, onValue, off, Database, enableLogging } from "firebase/database";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAzs8uxN3_umHX3CIS4iEhZwbEGoXCJNKU",
@@ -12,17 +12,23 @@ const firebaseConfig = {
   appId: "1:831897280604:web:0b08931be8d0f12dbdc699"
 };
 
-// Singleton seguro
+// Inicializa apenas uma vez
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 const db: Database = getDatabase(app);
+
+// Ativa logs para ajudar a depurar "Desconectado" no console do navegador
+// Pode ser removido após estabilização
+enableLogging(false); 
 
 /**
  * Monitora o status da conexão física com o Firebase
  */
 export const monitorConnection = (callback: (online: boolean) => void) => {
   const connectedRef = ref(db, ".info/connected");
-  onValue(connectedRef, (snap) => {
-    callback(snap.val() === true);
+  return onValue(connectedRef, (snap) => {
+    const isOnline = snap.val() === true;
+    console.log("[Firebase] Status da Conexão:", isOnline ? "ONLINE" : "OFFLINE");
+    callback(isOnline);
   });
 };
 
@@ -30,28 +36,20 @@ export const monitorConnection = (callback: (online: boolean) => void) => {
  * Salva dados na nuvem com confirmação
  */
 export const syncToCloud = async (key: string, data: any) => {
-  if (!db) {
-    console.error("Database não inicializado.");
-    return false;
-  }
+  if (!db) return false;
   try {
     const dbRef = ref(db, 'churchData/' + key);
     await set(dbRef, data);
-    // Atualiza cache local apenas após sucesso na nuvem
     localStorage.setItem(`ieadban_${key}`, JSON.stringify(data));
-    console.log(`[Firebase] Sincronizado com sucesso: ${key}`);
     return true;
   } catch (error: any) {
     console.error(`[Firebase] Erro ao sincronizar ${key}:`, error.message);
-    if (error.message.includes("permission_denied")) {
-      alert("Erro de Permissão: Verifique se as regras do Banco de Dados no Firebase estão como '.read: true, .write: true'");
-    }
     return false;
   }
 };
 
 /**
- * Escuta mudanças em tempo real e garante a atualização do estado
+ * Escuta mudanças em tempo real
  */
 export const subscribeToCloud = (key: string, callback: (data: any) => void) => {
   if (!db) return () => {};
@@ -60,13 +58,12 @@ export const subscribeToCloud = (key: string, callback: (data: any) => void) => 
   
   const unsubscribe = onValue(dbRef, (snapshot) => {
     const data = snapshot.val();
-    if (data !== null && data !== undefined) {
-      console.log(`[Firebase] Dados recebidos para ${key}`);
+    if (data !== null) {
       callback(data);
       localStorage.setItem(`ieadban_${key}`, JSON.stringify(data));
     }
   }, (error) => {
-    console.warn(`[Firebase] Falha na escuta de ${key}:`, error.message);
+    console.error(`[Firebase] Erro na escuta ${key}:`, error.message);
   });
   
   return () => off(dbRef, 'value', unsubscribe);
