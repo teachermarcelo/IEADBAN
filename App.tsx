@@ -24,7 +24,6 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'online' | 'syncing'>('online');
   
-  // Estados de Dados
   const [members, setMembers] = useState<Member[]>([]);
   const [newConverts, setNewConverts] = useState<NewConvert[]>([]);
   const [baptisms, setBaptisms] = useState<Baptism[]>([]);
@@ -39,7 +38,7 @@ const App: React.FC = () => {
   const [weeklyCults, setWeeklyCults] = useState<WeeklyCult[]>([]);
   const [notices, setNotices] = useState<ChurchNotice[]>([]);
 
-  // 1. Carregar cache local imediatamente
+  // 1. Carregar cache local inicial
   useEffect(() => {
     const keys = ['members', 'converts', 'baptisms', 'carousel', 'congs', 'deps', 'events', 'media', 'cults', 'notices', 'courses'];
     keys.forEach(key => {
@@ -60,12 +59,12 @@ const App: React.FC = () => {
             case 'notices': setNotices(parsed); break;
             case 'courses': setCourses(parsed); break;
           }
-        } catch (e) { console.error("Erro ao carregar cache:", e); }
+        } catch (e) {}
       }
     });
   }, []);
 
-  // 2. Escuta em Tempo Real
+  // 2. Conectar e Sincronizar (Real-time)
   useEffect(() => {
     const unsubscribes = [
       subscribeToCloud('members', setMembers),
@@ -86,7 +85,7 @@ const App: React.FC = () => {
   const handleGlobalUpdate = async (key: string, data: any) => {
     setSyncStatus('syncing');
     
-    // UI Instantânea: Atualiza o estado local antes mesmo da rede
+    // Atualização otimista na UI
     switch(key) {
       case 'members': setMembers(data); break;
       case 'converts': setNewConverts(data); break;
@@ -101,14 +100,12 @@ const App: React.FC = () => {
       case 'courses': setCourses(data); break;
     }
 
-    try {
-      await syncToCloud(key, data);
-    } catch (e) {
-      console.error("Falha ao sincronizar com a nuvem:", e);
-    } finally {
-      // Força a limpeza do status "Sincronizando" após um curto delay
-      setTimeout(() => setSyncStatus('online'), 1000);
-    }
+    const success = await syncToCloud(key, data);
+    
+    // Pequeno delay para a UI respirar
+    setTimeout(() => {
+      setSyncStatus('online');
+    }, 600);
   };
 
   const navItems = [
@@ -139,7 +136,7 @@ const App: React.FC = () => {
               <div className="flex items-center gap-1.5">
                 <div className={`w-1.5 h-1.5 rounded-full ${syncStatus === 'online' ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
                 <span className={`text-[9px] font-black uppercase tracking-widest ${syncStatus === 'syncing' ? 'text-amber-500' : 'text-slate-400'}`}>
-                  {syncStatus === 'syncing' ? 'Sincronizando...' : 'Nuvem IEADBAN'}
+                  {syncStatus === 'syncing' ? 'Sincronizando...' : 'Nuvem Conectada'}
                 </span>
               </div>
             </div>
@@ -164,8 +161,8 @@ const App: React.FC = () => {
                  <Cloud size={16} />
                </div>
                <div>
-                 <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Status Global</p>
-                 <p className="text-[10px] font-bold text-slate-600 leading-tight">Backup Real-Time</p>
+                 <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Central de Dados</p>
+                 <p className="text-[10px] font-bold text-slate-600 leading-tight">Backup Ativo</p>
                </div>
             </div>
           </div>
