@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Home, Users, Landmark, BookOpen, Book, Menu, X, Calendar, Layers, 
-  Camera, BookType, HeartHandshake, Waves, GraduationCap, Cloud, RefreshCw, Loader2, WifiOff
+  Camera, BookType, HeartHandshake, Waves, GraduationCap, Cloud, RefreshCw, Loader2, WifiOff, AlertTriangle
 } from 'lucide-react';
 import { Member, Congregation, Department, Event, MediaItem, WeeklyCult, ChurchNotice, TabType, NewConvert, Baptism, CarouselItem, Course } from './types';
 import { syncToCloud, subscribeToCloud, monitorConnection } from './services/firebase';
@@ -23,8 +23,9 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('home');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'online' | 'syncing' | 'offline' | 'loading'>('loading');
+  const [showTimeoutButton, setShowTimeoutButton] = useState(false);
   
-  // Estados de Dados
+  // Estados de Dados (Iniciados vazios ou com cache)
   const [members, setMembers] = useState<Member[]>([]);
   const [newConverts, setNewConverts] = useState<NewConvert[]>([]);
   const [baptisms, setBaptisms] = useState<Baptism[]>([]);
@@ -41,7 +42,7 @@ const App: React.FC = () => {
 
   const hasLoadedFromCloud = useRef<Record<string, boolean>>({});
 
-  // 1. Carregar Cache Local e Iniciar Monitoramento
+  // 1. Carregar Cache Local Imediatamente e configurar Timeout
   useEffect(() => {
     const keys = ['members', 'converts', 'baptisms', 'carousel', 'congs', 'deps', 'events', 'media', 'cults', 'notices', 'courses'];
     keys.forEach(key => {
@@ -66,26 +67,34 @@ const App: React.FC = () => {
       }
     });
 
+    // Se em 6 segundos não conectar, permite forçar entrada
+    const timeout = setTimeout(() => {
+      if (syncStatus === 'loading') {
+        setShowTimeoutButton(true);
+      }
+    }, 6000);
+
     const unsubscribeConn = monitorConnection((isOnline) => {
       if (isOnline) {
         setSyncStatus('online');
-      } else {
-        // Dá uma margem de 5 segundos antes de dizer que está offline de fato
-        setTimeout(() => {
-          setSyncStatus(prev => prev === 'online' ? 'offline' : prev);
-        }, 5000);
+        clearTimeout(timeout);
+      } else if (syncStatus !== 'loading') {
+        setSyncStatus('offline');
       }
     });
 
-    return () => unsubscribeConn();
+    return () => {
+      unsubscribeConn();
+      clearTimeout(timeout);
+    };
   }, []);
 
-  // 2. Sincronização em Tempo Real
+  // 2. Sincronização em Tempo Real (Só acontece se houver conexão)
   useEffect(() => {
     const createSetter = (key: string, setter: Function) => (data: any) => {
       hasLoadedFromCloud.current[key] = true;
       setter(data || []);
-      setSyncStatus('online');
+      if (syncStatus === 'loading') setSyncStatus('online');
     };
 
     const unsubscribes = [
@@ -103,16 +112,10 @@ const App: React.FC = () => {
     ];
 
     return () => unsubscribes.forEach(unsub => unsub?.());
-  }, []);
+  }, [syncStatus]); // Re-subscribe se o status mudar para online
 
   const handleGlobalUpdate = async (key: string, data: any) => {
-    if (!hasLoadedFromCloud.current[key] && syncStatus === 'loading') {
-      alert("Aguarde a conexão com a nuvem ser estabelecida...");
-      return;
-    }
-
-    setSyncStatus('syncing');
-    
+    // Permite atualizar localmente mesmo se estiver offline ou carregando
     switch(key) {
       case 'members': setMembers(data); break;
       case 'converts': setNewConverts(data); break;
@@ -127,8 +130,14 @@ const App: React.FC = () => {
       case 'courses': setCourses(data); break;
     }
 
-    const success = await syncToCloud(key, data);
-    setSyncStatus(success ? 'online' : 'offline');
+    if (syncStatus === 'online' || syncStatus === 'syncing') {
+      setSyncStatus('syncing');
+      const success = await syncToCloud(key, data);
+      setSyncStatus(success ? 'online' : 'offline');
+    } else {
+      // Se offline, apenas salva no cache local
+      localStorage.setItem(`ieadban_${key}`, JSON.stringify(data));
+    }
   };
 
   const navItems = [
@@ -165,7 +174,7 @@ const App: React.FC = () => {
                   syncStatus === 'syncing' || syncStatus === 'loading' ? 'text-amber-500' : 
                   syncStatus === 'offline' ? 'text-rose-500' : 'text-slate-400'
                 }`}>
-                  {syncStatus === 'loading' ? 'Conectando...' : syncStatus === 'syncing' ? 'Sincronizando...' : syncStatus === 'offline' ? 'Desconectado' : 'Nuvem Ativa'}
+                  {syncStatus === 'loading' ? 'Conectando...' : syncStatus === 'syncing' ? 'Sincronizando...' : syncStatus === 'offline' ? 'Modo Offline' : 'Nuvem Ativa'}
                 </span>
               </div>
             </div>
@@ -191,7 +200,7 @@ const App: React.FC = () => {
                </div>
                <div>
                  <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Central de Dados</p>
-                 <p className="text-[10px] font-bold text-slate-600 leading-tight">Sincronização Ativa</p>
+                 <p className="text-[10px] font-bold text-slate-600 leading-tight">Backup Local & Nuvem</p>
                </div>
             </div>
           </div>
@@ -213,11 +222,25 @@ const App: React.FC = () => {
 
         <div className="flex-1 p-4 md:p-8 lg:p-12 max-w-7xl mx-auto w-full">
           {syncStatus === 'loading' && (
-            <div className="fixed inset-0 bg-slate-50/70 backdrop-blur-md z-[200] flex flex-col items-center justify-center space-y-4">
-              <div className="bg-white p-8 rounded-[40px] shadow-2xl flex flex-col items-center border border-slate-100">
-                <Loader2 className="animate-spin text-blue-600 mb-4" size={48} />
-                <p className="text-slate-800 font-black uppercase text-xs tracking-[0.2em]">Estabelecendo Conexão...</p>
-                <p className="text-slate-400 text-[10px] mt-2 font-bold">Aguardando resposta do servidor IEADBAN</p>
+            <div className="fixed inset-0 bg-slate-50/80 backdrop-blur-xl z-[200] flex flex-col items-center justify-center p-6 text-center">
+              <div className="bg-white p-10 rounded-[48px] shadow-2xl flex flex-col items-center border border-slate-100 max-w-sm w-full animate-in zoom-in-95">
+                <div className="relative mb-6">
+                  <div className="absolute inset-0 bg-blue-100 rounded-full animate-ping opacity-20" />
+                  <Loader2 className="animate-spin text-blue-600 relative z-10" size={56} />
+                </div>
+                <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-2">Sincronizando...</h3>
+                <p className="text-slate-400 text-xs font-bold leading-relaxed mb-8">Buscando as últimas atualizações da IEADBAN Balsa Nova na nuvem.</p>
+                
+                {showTimeoutButton ? (
+                  <button 
+                    onClick={() => setSyncStatus('offline')}
+                    className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 hover:bg-slate-800 transition-all"
+                  >
+                    <AlertTriangle size={14} className="text-amber-400" /> Entrar em Modo Offline
+                  </button>
+                ) : (
+                  <div className="h-10" /> 
+                )}
               </div>
             </div>
           )}

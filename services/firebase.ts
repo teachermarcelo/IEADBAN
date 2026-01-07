@@ -1,6 +1,6 @@
 
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getDatabase, ref, set, onValue, off, Database, enableLogging } from "firebase/database";
+import { getDatabase, ref, set, onValue, off, Database } from "firebase/database";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAzs8uxN3_umHX3CIS4iEhZwbEGoXCJNKU",
@@ -12,13 +12,9 @@ const firebaseConfig = {
   appId: "1:831897280604:web:0b08931be8d0f12dbdc699"
 };
 
-// Inicializa apenas uma vez
+// Singleton robusto
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-const db: Database = getDatabase(app);
-
-// Ativa logs para ajudar a depurar "Desconectado" no console do navegador
-// Pode ser removido após estabilização
-enableLogging(false); 
+export const db: Database = getDatabase(app);
 
 /**
  * Monitora o status da conexão física com o Firebase
@@ -26,24 +22,21 @@ enableLogging(false);
 export const monitorConnection = (callback: (online: boolean) => void) => {
   const connectedRef = ref(db, ".info/connected");
   return onValue(connectedRef, (snap) => {
-    const isOnline = snap.val() === true;
-    console.log("[Firebase] Status da Conexão:", isOnline ? "ONLINE" : "OFFLINE");
-    callback(isOnline);
+    callback(snap.val() === true);
   });
 };
 
 /**
- * Salva dados na nuvem com confirmação
+ * Salva dados na nuvem
  */
 export const syncToCloud = async (key: string, data: any) => {
-  if (!db) return false;
   try {
     const dbRef = ref(db, 'churchData/' + key);
     await set(dbRef, data);
     localStorage.setItem(`ieadban_${key}`, JSON.stringify(data));
     return true;
-  } catch (error: any) {
-    console.error(`[Firebase] Erro ao sincronizar ${key}:`, error.message);
+  } catch (error) {
+    console.error(`Erro ao sincronizar ${key}:`, error);
     return false;
   }
 };
@@ -52,19 +45,13 @@ export const syncToCloud = async (key: string, data: any) => {
  * Escuta mudanças em tempo real
  */
 export const subscribeToCloud = (key: string, callback: (data: any) => void) => {
-  if (!db) return () => {};
-  
   const dbRef = ref(db, 'churchData/' + key);
-  
   const unsubscribe = onValue(dbRef, (snapshot) => {
     const data = snapshot.val();
     if (data !== null) {
       callback(data);
       localStorage.setItem(`ieadban_${key}`, JSON.stringify(data));
     }
-  }, (error) => {
-    console.error(`[Firebase] Erro na escuta ${key}:`, error.message);
   });
-  
   return () => off(dbRef, 'value', unsubscribe);
 };
