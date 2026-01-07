@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect } from 'react';
-/* Added BookType and Calendar to the imports from lucide-react */
 import { Users, Landmark, ArrowRight, Quote, Sparkles, Waves, ChevronLeft, ChevronRight, BookType, Calendar } from 'lucide-react';
 import { TabType, Baptism, CarouselItem } from '../types';
 
@@ -45,71 +44,74 @@ const HomeTab: React.FC<HomeTabProps> = ({ membersCount, congsCount, baptisms, c
   const prevSlide = () => setCurrentSlide(prev => (prev - 1 + totalSlides) % totalSlides);
 
   return (
-    <div className="space-y-6 md:space-y-10 animate-in fade-in duration-700">
+    <div className="space-y-8 animate-in fade-in duration-700">
       
-      {/* Estatísticas Mobile-First */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-50 flex items-center gap-4">
-          <div className="bg-blue-50 p-3 rounded-2xl text-blue-600"><Users size={20} /></div>
+      {/* Cards de Estatísticas - Layout dos Prints */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-50 flex items-center gap-6">
+          <div className="bg-blue-50 p-4 rounded-2xl text-blue-600 shadow-inner"><Users size={24} /></div>
           <div>
-            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Membros</p>
-            <p className="text-2xl font-black text-slate-800">{membersCount}</p>
+            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Membros</p>
+            <p className="text-3xl font-black text-slate-800">{membersCount}</p>
           </div>
         </div>
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-50 flex items-center gap-4">
-          <div className="bg-indigo-50 p-3 rounded-2xl text-indigo-600"><Landmark size={20} /></div>
+        <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-50 flex items-center gap-6">
+          <div className="bg-indigo-50 p-4 rounded-2xl text-indigo-600 shadow-inner"><Landmark size={24} /></div>
           <div>
-            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Congregações</p>
-            <p className="text-2xl font-black text-slate-800">{congsCount}</p>
+            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Congregações</p>
+            <p className="text-3xl font-black text-slate-800">{congsCount}</p>
           </div>
         </div>
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-50 flex items-center gap-4">
-          <div className="bg-cyan-50 p-3 rounded-2xl text-cyan-600"><Waves size={20} /></div>
+        <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-50 flex items-center gap-6 sm:col-span-2 lg:col-span-1">
+          <div className="bg-cyan-50 p-4 rounded-2xl text-cyan-600 shadow-inner"><Waves size={24} /></div>
           <div>
-            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Batismos {currentYear}</p>
-            <p className="text-2xl font-black text-slate-800">{confirmedBaptismsCurrentYear}</p>
+            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Batismos {currentYear}</p>
+            <p className="text-3xl font-black text-slate-800">{confirmedBaptismsCurrentYear}</p>
           </div>
         </div>
       </div>
 
-      {/* Destaque / Devocional Rapido */}
-      <div className="bg-gradient-to-br from-blue-600 to-indigo-900 rounded-[40px] p-8 md:p-12 text-white relative overflow-hidden shadow-2xl">
+      {/* Devocional Destaque - Identico ao Print */}
+      <div className="bg-gradient-to-br from-blue-600 to-indigo-900 rounded-[40px] p-10 md:p-16 text-white relative overflow-hidden shadow-2xl">
         <div className="relative z-10 max-w-2xl">
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex items-center gap-2 mb-6">
             <Sparkles size={16} className="text-blue-200" />
             <span className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-100">Devocional de Hoje</span>
           </div>
-          <Quote className="text-white/10 w-12 h-12 mb-4" />
-          <h3 className="text-2xl md:text-3xl font-bold mb-6 italic leading-relaxed">"{dailyVerse.text}"</h3>
-          <p className="text-blue-200 text-sm font-bold uppercase tracking-widest mb-8">— {dailyVerse.ref}</p>
-          <button onClick={() => onNavigate('devotional')} className="bg-white text-blue-700 px-8 py-4 rounded-2xl font-black uppercase text-xs tracking-widest flex items-center gap-2 hover:scale-105 transition-all">
+          <Quote className="text-white/10 w-16 h-16 mb-6" />
+          <h3 className="text-3xl md:text-4xl font-black mb-8 italic leading-tight tracking-tight">"{dailyVerse.text}"</h3>
+          <p className="text-blue-200 text-sm font-bold uppercase tracking-widest mb-10">— {dailyVerse.ref}</p>
+          <button onClick={() => onNavigate('devotional')} className="bg-white text-blue-700 px-10 py-4 rounded-2xl font-black uppercase text-xs tracking-widest flex items-center gap-2 hover:scale-105 transition-all shadow-xl active:scale-95">
             Ler Meditação Completa <ArrowRight size={16} />
           </button>
         </div>
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -mr-20 -mt-20" />
+        <div className="absolute top-0 right-0 w-80 h-80 bg-white/5 rounded-full blur-[100px] -mr-32 -mt-32" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-400/10 rounded-full blur-[80px] -ml-20 -mb-20" />
       </div>
 
-      {/* Carrossel de Banners Otimizado */}
+      {/* Banners - Otimizado para Mobile e Desktop conforme o Print */}
       {carouselItems.length > 0 && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Destaques & Eventos</h3>
+        <div className="space-y-6">
+          <div className="flex items-center justify-between px-2">
+            <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Destaques & Eventos</h3>
             <div className="flex gap-2">
-               <button onClick={prevSlide} className="p-2 bg-white rounded-full shadow-sm text-slate-400 hover:text-blue-600"><ChevronLeft size={18}/></button>
-               <button onClick={nextSlide} className="p-2 bg-white rounded-full shadow-sm text-slate-400 hover:text-blue-600"><ChevronRight size={18}/></button>
+               <button onClick={prevSlide} className="p-2.5 bg-white rounded-full shadow-sm text-slate-400 hover:text-blue-600 hover:bg-slate-50 transition-all"><ChevronLeft size={20}/></button>
+               <button onClick={nextSlide} className="p-2.5 bg-white rounded-full shadow-sm text-slate-400 hover:text-blue-600 hover:bg-slate-50 transition-all"><ChevronRight size={20}/></button>
             </div>
           </div>
           
-          <div className="relative overflow-hidden rounded-[32px]">
-            <div className="flex transition-transform duration-500 ease-in-out" style={{ transform: `translateX(-${currentSlide * 100}%)` }}>
+          <div className="relative overflow-hidden rounded-[40px] shadow-lg border border-slate-100 bg-white">
+            <div className="flex transition-transform duration-700 cubic-bezier(0.4, 0, 0.2, 1)" style={{ transform: `translateX(-${currentSlide * 100}%)` }}>
               {carouselItems.map((item) => (
                 <div key={item.id} className="w-full flex-shrink-0">
-                  <div className="aspect-[16/9] md:aspect-[21/9] w-full relative group">
+                  <div className="aspect-[16/9] md:aspect-[21/8] w-full relative group">
                     <img src={item.imageUrl} alt={item.title || "Banner"} className="w-full h-full object-cover" />
-                    {item.title && (
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-8">
-                        <h4 className="text-white font-black text-xl md:text-2xl">{item.title}</h4>
-                        {item.link && <a href={item.link} target="_blank" className="mt-2 text-blue-400 text-xs font-bold uppercase tracking-widest">Saiba mais</a>}
+                    {(item.title || item.link) && (
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-8 md:p-12">
+                        <h4 className="text-white font-black text-2xl md:text-3xl tracking-tight max-w-xl">{item.title}</h4>
+                        {item.link && (
+                          <a href={item.link} target="_blank" className="mt-4 inline-block bg-blue-600 text-white w-fit px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-500 transition-all">Saiba mais</a>
+                        )}
                       </div>
                     )}
                   </div>
@@ -120,20 +122,20 @@ const HomeTab: React.FC<HomeTabProps> = ({ membersCount, congsCount, baptisms, c
         </div>
       )}
 
-      {/* Agenda Rápida */}
+      {/* Atalhos Rápidos */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white p-8 rounded-[40px] border border-slate-50 flex items-center gap-6 group hover:border-blue-200 transition-all cursor-pointer" onClick={() => onNavigate('bible')}>
-           <div className="bg-slate-900 text-white p-5 rounded-3xl group-hover:scale-110 transition-transform"><BookType size={32}/></div>
+        <div className="bg-white p-10 rounded-[40px] border border-slate-50 flex items-center gap-8 group hover:border-blue-200 hover:shadow-xl transition-all cursor-pointer" onClick={() => onNavigate('bible')}>
+           <div className="bg-slate-900 text-white p-6 rounded-3xl group-hover:scale-110 group-hover:bg-blue-600 transition-all shadow-xl"><BookType size={36}/></div>
            <div>
-              <h4 className="font-black text-slate-800 text-lg">Bíblia Online</h4>
-              <p className="text-slate-400 text-xs font-medium">Leia a Palavra em qualquer lugar</p>
+              <h4 className="font-black text-slate-800 text-xl tracking-tight">Bíblia Online</h4>
+              <p className="text-slate-400 text-sm font-medium mt-1">A Palavra de Deus sempre com você</p>
            </div>
         </div>
-        <div className="bg-white p-8 rounded-[40px] border border-slate-50 flex items-center gap-6 group hover:border-blue-200 transition-all cursor-pointer" onClick={() => onNavigate('events')}>
-           <div className="bg-blue-600 text-white p-5 rounded-3xl group-hover:scale-110 transition-transform"><Calendar size={32}/></div>
+        <div className="bg-white p-10 rounded-[40px] border border-slate-50 flex items-center gap-8 group hover:border-blue-200 hover:shadow-xl transition-all cursor-pointer" onClick={() => onNavigate('events')}>
+           <div className="bg-blue-600 text-white p-6 rounded-3xl group-hover:scale-110 transition-all shadow-xl"><Calendar size={36}/></div>
            <div>
-              <h4 className="font-black text-slate-800 text-lg">Próximos Cultos</h4>
-              <p className="text-slate-400 text-xs font-medium">Não perca nossas programações</p>
+              <h4 className="font-black text-slate-800 text-xl tracking-tight">Próximos Cultos</h4>
+              <p className="text-slate-400 text-sm font-medium mt-1">Veja a programação e não perca nada</p>
            </div>
         </div>
       </div>
