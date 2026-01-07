@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Home, Users, Landmark, BookOpen, Book, Menu, X, Calendar, Layers, Camera, BookType, HeartHandshake, Waves, GraduationCap } from 'lucide-react';
+import { Home, Users, Landmark, BookOpen, Book, Menu, X, Calendar, Layers, Camera, BookType, HeartHandshake, Waves, GraduationCap } from 'lucide-center';
 import { Member, Congregation, Department, Event, MediaItem, WeeklyCult, ChurchNotice, TabType, NewConvert, Baptism, CarouselItem, Course } from './types';
 import MembersTab from './components/MembersTab';
 import CongregationsTab from './components/CongregationsTab';

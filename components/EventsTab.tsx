@@ -191,15 +191,6 @@ const EventsTab: React.FC<EventsTabProps> = ({
                 <button onClick={() => { onSaveCult({...editingItem, id: editingItem.id || Date.now().toString()}); setModalType(null); }} className="w-full bg-indigo-600 text-white py-5 rounded-3xl font-black uppercase text-xs">Salvar</button>
               </div>
             )}
-            {modalType === 'carousel' && (
-              <div className="space-y-4">
-                <div className="relative h-40 bg-slate-50 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center">
-                  {editingItem.imageUrl ? <img src={editingItem.imageUrl} className="w-full h-full object-cover" /> : <ImageIcon className="text-slate-300" size={32} />}
-                  <input type="file" accept="image/*" onChange={handleImageUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
-                </div>
-                <button onClick={() => { onSaveCarouselItem({...editingItem, id: editingItem.id || Date.now().toString()}); setModalType(null); }} className="w-full bg-rose-600 text-white py-5 rounded-3xl font-black uppercase text-xs">Salvar Banner</button>
-              </div>
-            )}
             <button onClick={() => setModalType(null)} className="w-full text-slate-400 font-bold uppercase text-[10px]">Cancelar</button>
           </div>
         </div>
