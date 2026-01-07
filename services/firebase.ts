@@ -12,30 +12,46 @@ const firebaseConfig = {
   appId: "1:831897280604:web:0b08931be8d0f12dbdc699"
 };
 
-// Singleton para garantir que o Firebase inicialize apenas uma vez com a versão correta
+// Singleton seguro
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 const db: Database = getDatabase(app);
 
-console.log("IEADBAN Cloud Service: Conexão Estabelecida");
+/**
+ * Monitora o status da conexão física com o Firebase
+ */
+export const monitorConnection = (callback: (online: boolean) => void) => {
+  const connectedRef = ref(db, ".info/connected");
+  onValue(connectedRef, (snap) => {
+    callback(snap.val() === true);
+  });
+};
 
 /**
- * Salva dados na nuvem.
+ * Salva dados na nuvem com confirmação
  */
 export const syncToCloud = async (key: string, data: any) => {
-  if (!db) return false;
+  if (!db) {
+    console.error("Database não inicializado.");
+    return false;
+  }
   try {
     const dbRef = ref(db, 'churchData/' + key);
     await set(dbRef, data);
+    // Atualiza cache local apenas após sucesso na nuvem
     localStorage.setItem(`ieadban_${key}`, JSON.stringify(data));
+    console.log(`[Firebase] Sincronizado com sucesso: ${key}`);
     return true;
-  } catch (error) {
-    console.error(`Erro ao sincronizar [${key}]:`, error);
+  } catch (error: any) {
+    console.error(`[Firebase] Erro ao sincronizar ${key}:`, error.message);
+    if (error.message.includes("permission_denied")) {
+      alert("Erro de Permissão: Verifique se as regras do Banco de Dados no Firebase estão como '.read: true, .write: true'");
+    }
     return false;
   }
 };
 
 /**
- * Escuta mudanças em tempo real.
+ * Escuta mudanças em tempo real e garante a atualização do estado
  */
 export const subscribeToCloud = (key: string, callback: (data: any) => void) => {
   if (!db) return () => {};
@@ -44,12 +60,13 @@ export const subscribeToCloud = (key: string, callback: (data: any) => void) => 
   
   const unsubscribe = onValue(dbRef, (snapshot) => {
     const data = snapshot.val();
-    if (data) {
+    if (data !== null && data !== undefined) {
+      console.log(`[Firebase] Dados recebidos para ${key}`);
       callback(data);
       localStorage.setItem(`ieadban_${key}`, JSON.stringify(data));
     }
   }, (error) => {
-    console.warn(`Erro na escuta de nuvem [${key}]:`, error);
+    console.warn(`[Firebase] Falha na escuta de ${key}:`, error.message);
   });
   
   return () => off(dbRef, 'value', unsubscribe);

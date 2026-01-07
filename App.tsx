@@ -2,10 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Home, Users, Landmark, BookOpen, Book, Menu, X, Calendar, Layers, 
-  Camera, BookType, HeartHandshake, Waves, GraduationCap, Cloud
+  Camera, BookType, HeartHandshake, Waves, GraduationCap, Cloud, RefreshCw
 } from 'lucide-react';
 import { Member, Congregation, Department, Event, MediaItem, WeeklyCult, ChurchNotice, TabType, NewConvert, Baptism, CarouselItem, Course } from './types';
-import { syncToCloud, subscribeToCloud } from './services/firebase';
+import { syncToCloud, subscribeToCloud, monitorConnection } from './services/firebase';
 import MembersTab from './components/MembersTab';
 import CongregationsTab from './components/CongregationsTab';
 import DevotionalTab from './components/DevotionalTab';
@@ -22,7 +22,7 @@ import CoursesTab from './components/CoursesTab';
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('home');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<'online' | 'syncing'>('online');
+  const [syncStatus, setSyncStatus] = useState<'online' | 'syncing' | 'offline'>('offline');
   
   const [members, setMembers] = useState<Member[]>([]);
   const [newConverts, setNewConverts] = useState<NewConvert[]>([]);
@@ -38,7 +38,7 @@ const App: React.FC = () => {
   const [weeklyCults, setWeeklyCults] = useState<WeeklyCult[]>([]);
   const [notices, setNotices] = useState<ChurchNotice[]>([]);
 
-  // 1. Carregar cache local inicial
+  // 1. Carregar cache local inicial para UI rápida
   useEffect(() => {
     const keys = ['members', 'converts', 'baptisms', 'carousel', 'congs', 'deps', 'events', 'media', 'cults', 'notices', 'courses'];
     keys.forEach(key => {
@@ -62,9 +62,14 @@ const App: React.FC = () => {
         } catch (e) {}
       }
     });
+
+    // Monitorar conexão real
+    monitorConnection((isOnline) => {
+      setSyncStatus(isOnline ? 'online' : 'offline');
+    });
   }, []);
 
-  // 2. Conectar e Sincronizar (Real-time)
+  // 2. Conectar e Sincronizar (Real-time). Isso sobrescreverá o cache local com a verdade da nuvem.
   useEffect(() => {
     const unsubscribes = [
       subscribeToCloud('members', setMembers),
@@ -85,7 +90,7 @@ const App: React.FC = () => {
   const handleGlobalUpdate = async (key: string, data: any) => {
     setSyncStatus('syncing');
     
-    // Atualização otimista na UI
+    // Atualização otimista na UI (Efeito imediato)
     switch(key) {
       case 'members': setMembers(data); break;
       case 'converts': setNewConverts(data); break;
@@ -101,11 +106,7 @@ const App: React.FC = () => {
     }
 
     const success = await syncToCloud(key, data);
-    
-    // Pequeno delay para a UI respirar
-    setTimeout(() => {
-      setSyncStatus('online');
-    }, 600);
+    setSyncStatus(success ? 'online' : 'offline');
   };
 
   const navItems = [
@@ -134,9 +135,9 @@ const App: React.FC = () => {
             <div>
               <h1 className="font-black text-xl text-slate-800 tracking-tighter">IEADBAN</h1>
               <div className="flex items-center gap-1.5">
-                <div className={`w-1.5 h-1.5 rounded-full ${syncStatus === 'online' ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
-                <span className={`text-[9px] font-black uppercase tracking-widest ${syncStatus === 'syncing' ? 'text-amber-500' : 'text-slate-400'}`}>
-                  {syncStatus === 'syncing' ? 'Sincronizando...' : 'Nuvem Conectada'}
+                <div className={`w-1.5 h-1.5 rounded-full ${syncStatus === 'online' ? 'bg-emerald-500' : syncStatus === 'syncing' ? 'bg-amber-500 animate-pulse' : 'bg-rose-500'}`} />
+                <span className={`text-[9px] font-black uppercase tracking-widest ${syncStatus === 'syncing' ? 'text-amber-500' : syncStatus === 'offline' ? 'text-rose-500' : 'text-slate-400'}`}>
+                  {syncStatus === 'syncing' ? 'Sincronizando...' : syncStatus === 'offline' ? 'Desconectado' : 'Nuvem Conectada'}
                 </span>
               </div>
             </div>
@@ -157,12 +158,12 @@ const App: React.FC = () => {
 
           <div className="mt-6 pt-6 border-t border-slate-50">
             <div className="p-4 bg-slate-50 rounded-2xl flex items-center gap-3">
-               <div className="bg-white p-2 rounded-lg text-blue-600 shadow-sm">
+               <div className={`bg-white p-2 rounded-lg shadow-sm ${syncStatus === 'online' ? 'text-emerald-500' : 'text-slate-400'}`}>
                  <Cloud size={16} />
                </div>
                <div>
                  <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Central de Dados</p>
-                 <p className="text-[10px] font-bold text-slate-600 leading-tight">Backup Ativo</p>
+                 <p className="text-[10px] font-bold text-slate-600 leading-tight">Backup em Tempo Real</p>
                </div>
             </div>
           </div>
@@ -175,7 +176,10 @@ const App: React.FC = () => {
             <div className="bg-blue-600 p-1.5 rounded-lg text-white"><Landmark size={18} /></div>
             <span className="font-black text-slate-800 tracking-tighter">IEADBAN</span>
           </div>
-          <button onClick={() => setIsSidebarOpen(true)} className="p-2 bg-slate-50 rounded-lg text-slate-600"><Menu size={22}/></button>
+          <div className="flex items-center gap-3">
+            {syncStatus === 'syncing' && <RefreshCw size={18} className="animate-spin text-amber-500" />}
+            <button onClick={() => setIsSidebarOpen(true)} className="p-2 bg-slate-50 rounded-lg text-slate-600"><Menu size={22}/></button>
+          </div>
         </header>
 
         <div className="flex-1 p-4 md:p-8 lg:p-12 max-w-7xl mx-auto w-full">
