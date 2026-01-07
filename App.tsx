@@ -2,9 +2,10 @@
 import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { 
   Home, Users, Landmark, BookOpen, Book, Menu, X, Calendar, Layers, 
-  Camera, BookType, HeartHandshake, Waves, GraduationCap, Download, Upload, Cloud
+  Camera, BookType, HeartHandshake, Waves, GraduationCap, Download, Upload, Cloud, RefreshCw
 } from 'lucide-react';
 import { Member, Congregation, Department, Event, MediaItem, WeeklyCult, ChurchNotice, TabType, NewConvert, Baptism, CarouselItem, Course } from './types';
+import { syncToCloud } from './services/firebase';
 import MembersTab from './components/MembersTab';
 import CongregationsTab from './components/CongregationsTab';
 import DevotionalTab from './components/DevotionalTab';
@@ -21,7 +22,7 @@ import CoursesTab from './components/CoursesTab';
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('home');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<'online' | 'offline'>('online');
+  const [syncStatus, setSyncStatus] = useState<'online' | 'syncing' | 'offline'>('online');
   
   // Estados de Dados
   const [members, setMembers] = useState<Member[]>([]);
@@ -44,10 +45,7 @@ const App: React.FC = () => {
   ]);
   const [notices, setNotices] = useState<ChurchNotice[]>([]);
 
-  // Lógica de Sincronização Global (Simulada para este ambiente)
-  // Em um app real, aqui entraríamos com as funções do Firebase: onSnapshot()
-  const loadGlobalData = () => {
-    setSyncStatus('online');
+  const loadLocalData = () => {
     const keys = [
       ['ieadban_members', setMembers],
       ['ieadban_converts', setNewConverts],
@@ -71,20 +69,25 @@ const App: React.FC = () => {
   };
 
   useLayoutEffect(() => {
-    loadGlobalData();
-    // Escuta mudanças de outros dispositivos (simulado via broadcast channel)
-    const channel = new BroadcastChannel('ieadban_sync');
-    channel.onmessage = (msg) => {
-      if (msg.data === 'update_all') loadGlobalData();
+    loadLocalData();
+    
+    // Escuta sincronização global (via BroadcastChannel para mesma origem)
+    const channel = new BroadcastChannel('ieadban_global_sync');
+    channel.onmessage = (event) => {
+      setSyncStatus('syncing');
+      setTimeout(() => {
+        loadLocalData();
+        setSyncStatus('online');
+      }, 500);
     };
+    
     return () => channel.close();
   }, []);
 
-  const saveGlobal = (key: string, data: any) => {
-    localStorage.setItem(`ieadban_${key}`, JSON.stringify(data));
-    // Notifica outros processos (abas ou janelas) sobre a atualização
-    const channel = new BroadcastChannel('ieadban_sync');
-    channel.postMessage('update_all');
+  const handleGlobalUpdate = async (key: string, data: any) => {
+    setSyncStatus('syncing');
+    await syncToCloud(key, data);
+    setTimeout(() => setSyncStatus('online'), 800);
   };
 
   const navItems = [
@@ -113,8 +116,10 @@ const App: React.FC = () => {
             <div>
               <h1 className="font-black text-xl text-slate-800 tracking-tighter">IEADBAN</h1>
               <div className="flex items-center gap-1.5">
-                <div className={`w-1.5 h-1.5 rounded-full ${syncStatus === 'online' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
-                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Nuvem Ativa</span>
+                <div className={`w-1.5 h-1.5 rounded-full ${syncStatus === 'online' ? 'bg-emerald-500' : syncStatus === 'syncing' ? 'bg-amber-500 animate-ping' : 'bg-slate-300'}`} />
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                  {syncStatus === 'syncing' ? 'Sincronizando...' : 'Nuvem Conectada'}
+                </span>
               </div>
             </div>
           </div>
@@ -132,17 +137,16 @@ const App: React.FC = () => {
             ))}
           </nav>
 
-          <div className="mt-6 pt-6 border-t border-slate-50 space-y-2">
-            <div className="p-4 bg-blue-50/50 rounded-2xl">
-               <div className="flex items-center gap-2 mb-2 text-blue-600">
-                  <Cloud size={14} />
-                  <span className="text-[10px] font-black uppercase tracking-widest">Sincronização</span>
+          <div className="mt-6 pt-6 border-t border-slate-50">
+            <div className="p-4 bg-slate-50 rounded-2xl flex items-center gap-3 group cursor-help">
+               <div className="bg-white p-2 rounded-lg text-blue-600 shadow-sm group-hover:rotate-12 transition-transform">
+                 <Cloud size={16} />
                </div>
-               <p className="text-[9px] text-slate-500 font-medium leading-relaxed">
-                 Todas as alterações feitas por administradores são replicadas automaticamente para todos os dispositivos conectados.
-               </p>
+               <div>
+                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter leading-none mb-1">Backup Automático</p>
+                 <p className="text-[10px] font-bold text-slate-600 leading-tight">Dados seguros na nuvem</p>
+               </div>
             </div>
-            <p className="text-[9px] text-center text-slate-300 mt-4 font-bold tracking-widest uppercase">Balsa Nova - PR</p>
           </div>
         </div>
       </aside>
@@ -160,17 +164,17 @@ const App: React.FC = () => {
           {(() => {
             switch (activeTab) {
               case 'home': return <HomeTab carouselItems={carouselItems} membersCount={members.length} congsCount={congregations.length} baptisms={baptisms} onNavigate={setActiveTab} />;
-              case 'members': return <MembersTab members={members} congregations={congregations} onAdd={(m) => { const n = [...members, m]; setMembers(n); saveGlobal('members', n); }} onUpdate={(m) => { const n = members.map(p => p.id === m.id ? m : p); setMembers(n); saveGlobal('members', n); }} onDelete={(id) => { const n = members.filter(p => p.id !== id); setMembers(n); saveGlobal('members', n); }} />;
-              case 'congregations': return <CongregationsTab congregations={congregations} onAdd={(c) => { const n = [...congregations, c]; setCongregations(n); saveGlobal('congs', n); }} onUpdate={(c) => { const n = congregations.map(p => p.id === c.id ? c : p); setCongregations(n); saveGlobal('congs', n); }} onDelete={(id) => { const n = congregations.filter(p => p.id !== id); setCongregations(n); saveGlobal('congs', n); }} />;
-              case 'departments': return <DepartmentsTab departments={departments} onSave={(d) => { const n = [...departments.filter(x => x.id !== d.id), d]; setDepartments(n); saveGlobal('deps', n); }} onDelete={(id) => { const n = departments.filter(x => x.id !== id); setDepartments(n); saveGlobal('deps', n); }} />;
-              case 'events': return <EventsTab carouselItems={carouselItems} onSaveCarouselItem={(item) => { const n = [...carouselItems.filter(x => x.id !== item.id), item]; setCarouselItems(n); saveGlobal('carousel', n); }} onDeleteCarouselItem={(id) => { const n = carouselItems.filter(x => x.id !== id); setCarouselItems(n); saveGlobal('carousel', n); }} events={events} weeklyCults={weeklyCults} notices={notices} onSaveEvent={(e) => { const n = [...events.filter(x => x.id !== e.id), e]; setEvents(n); saveGlobal('events', n); }} onDeleteEvent={(id) => { const n = events.filter(x => x.id !== id); setEvents(n); saveGlobal('events', n); }} onSaveCult={(c) => { const n = [...weeklyCults.filter(x => x.id !== c.id), c]; setWeeklyCults(n); saveGlobal('cults', n); }} onDeleteCult={(id) => { const n = weeklyCults.filter(x => x.id !== id); setWeeklyCults(n); saveGlobal('cults', n); }} onSaveNotice={(notice) => { const n = [...notices.filter(x => x.id !== notice.id), notice]; setNotices(n); saveGlobal('notices', n); }} onDeleteNotice={(id) => { const n = notices.filter(x => x.id !== id); setNotices(n); saveGlobal('notices', n); }} onReorderCults={(newList) => { setWeeklyCults(newList); saveGlobal('cults', newList); }} />;
+              case 'members': return <MembersTab members={members} congregations={congregations} onAdd={(m) => { const n = [...members, m]; setMembers(n); handleGlobalUpdate('members', n); }} onUpdate={(m) => { const n = members.map(p => p.id === m.id ? m : p); setMembers(n); handleGlobalUpdate('members', n); }} onDelete={(id) => { const n = members.filter(p => p.id !== id); setMembers(n); handleGlobalUpdate('members', n); }} />;
+              case 'congregations': return <CongregationsTab congregations={congregations} onAdd={(c) => { const n = [...congregations, c]; setCongregations(n); handleGlobalUpdate('congs', n); }} onUpdate={(c) => { const n = congregations.map(p => p.id === c.id ? c : p); setCongregations(n); handleGlobalUpdate('congs', n); }} onDelete={(id) => { const n = congregations.filter(p => p.id !== id); setCongregations(n); handleGlobalUpdate('congs', n); }} />;
+              case 'departments': return <DepartmentsTab departments={departments} onSave={(d) => { const n = [...departments.filter(x => x.id !== d.id), d]; setDepartments(n); handleGlobalUpdate('deps', n); }} onDelete={(id) => { const n = departments.filter(x => x.id !== id); setDepartments(n); handleGlobalUpdate('deps', n); }} />;
+              case 'events': return <EventsTab carouselItems={carouselItems} onSaveCarouselItem={(item) => { const n = [...carouselItems.filter(x => x.id !== item.id), item]; setCarouselItems(n); handleGlobalUpdate('carousel', n); }} onDeleteCarouselItem={(id) => { const n = carouselItems.filter(x => x.id !== id); setCarouselItems(n); handleGlobalUpdate('carousel', n); }} events={events} weeklyCults={weeklyCults} notices={notices} onSaveEvent={(e) => { const n = [...events.filter(x => x.id !== e.id), e]; setEvents(n); handleGlobalUpdate('events', n); }} onDeleteEvent={(id) => { const n = events.filter(x => x.id !== id); setEvents(n); handleGlobalUpdate('events', n); }} onSaveCult={(c) => { const n = [...weeklyCults.filter(x => x.id !== c.id), c]; setWeeklyCults(n); handleGlobalUpdate('cults', n); }} onDeleteCult={(id) => { const n = weeklyCults.filter(x => x.id !== id); setWeeklyCults(n); handleGlobalUpdate('cults', n); }} onSaveNotice={(notice) => { const n = [...notices.filter(x => x.id !== notice.id), notice]; setNotices(n); handleGlobalUpdate('notices', n); }} onDeleteNotice={(id) => { const n = notices.filter(x => x.id !== id); setNotices(n); handleGlobalUpdate('notices', n); }} onReorderCults={(newList) => { setWeeklyCults(newList); handleGlobalUpdate('cults', newList); }} />;
               case 'devotional': return <DevotionalTab />;
               case 'bible': return <BibleTab />;
               case 'reading-plan': return <ReadingPlanTab />;
-              case 'discipleship': return <DiscipleshipTab newConverts={newConverts} congregations={congregations} onSaveConvert={(c) => { const n = [...newConverts.filter(x => x.id !== c.id), c]; setNewConverts(n); saveGlobal('converts', n); }} onDeleteConvert={(id) => { const n = newConverts.filter(x => x.id !== id); setNewConverts(n); saveGlobal('converts', n); }} onConvertToMember={(m, id) => { const nm = [...members, m]; setMembers(nm); saveGlobal('members', nm); const nc = newConverts.filter(x => x.id !== id); setNewConverts(nc); saveGlobal('converts', nc); }} />;
-              case 'baptisms': return <BaptismsTab baptisms={baptisms} congregations={congregations} onSave={(b) => { const n = [...baptisms.filter(x => x.id !== b.id), b]; setBaptisms(n); saveGlobal('baptisms', n); }} onDelete={(id) => { const n = baptisms.filter(x => x.id !== id); setBaptisms(n); saveGlobal('baptisms', n); }} />;
-              case 'courses': return <CoursesTab courses={courses} onSave={(c) => { const n = [...courses.filter(x => x.id !== c.id), c]; setCourses(n); saveGlobal('courses', n); }} onDelete={(id) => { const n = courses.filter(x => x.id !== id); setCourses(n); saveGlobal('courses', n); }} />;
-              case 'media': return <MediaTab mediaItems={mediaItems} onSave={(m) => { const n = [...mediaItems.filter(x => x.id !== m.id), m]; setMediaItems(n); saveGlobal('media', n); }} onDelete={(id) => { const n = mediaItems.filter(x => x.id !== id); setMediaItems(n); saveGlobal('media', n); }} />;
+              case 'discipleship': return <DiscipleshipTab newConverts={newConverts} congregations={congregations} onSaveConvert={(c) => { const n = [...newConverts.filter(x => x.id !== c.id), c]; setNewConverts(n); handleGlobalUpdate('converts', n); }} onDeleteConvert={(id) => { const n = newConverts.filter(x => x.id !== id); setNewConverts(n); handleGlobalUpdate('converts', n); }} onConvertToMember={(m, id) => { const nm = [...members, m]; setMembers(nm); handleGlobalUpdate('members', nm); const nc = newConverts.filter(x => x.id !== id); setNewConverts(nc); handleGlobalUpdate('converts', nc); }} />;
+              case 'baptisms': return <BaptismsTab baptisms={baptisms} congregations={congregations} onSave={(b) => { const n = [...baptisms.filter(x => x.id !== b.id), b]; setBaptisms(n); handleGlobalUpdate('baptisms', n); }} onDelete={(id) => { const n = baptisms.filter(x => x.id !== id); setBaptisms(n); handleGlobalUpdate('baptisms', n); }} />;
+              case 'courses': return <CoursesTab courses={courses} onSave={(c) => { const n = [...courses.filter(x => x.id !== c.id), c]; setCourses(n); handleGlobalUpdate('courses', n); }} onDelete={(id) => { const n = courses.filter(x => x.id !== id); setCourses(n); handleGlobalUpdate('courses', n); }} />;
+              case 'media': return <MediaTab mediaItems={mediaItems} onSave={(m) => { const n = [...mediaItems.filter(x => x.id !== m.id), m]; setMediaItems(n); handleGlobalUpdate('media', n); }} onDelete={(id) => { const n = mediaItems.filter(x => x.id !== id); setMediaItems(n); handleGlobalUpdate('media', n); }} />;
               default: return <HomeTab carouselItems={carouselItems} membersCount={members.length} congsCount={congregations.length} baptisms={baptisms} onNavigate={setActiveTab} />;
             }
           })()}
