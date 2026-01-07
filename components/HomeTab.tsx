@@ -20,9 +20,9 @@ const HomeTab: React.FC<HomeTabProps> = ({ membersCount, congsCount, baptisms, c
 
   const [itemsPerView, setItemsPerView] = useState(1);
 
+  // Responsividade do número de itens
   useEffect(() => {
     const handleResize = () => {
-      // No PC (lg) mostra 3, no tablet (md) 2, no mobile 1
       setItemsPerView(window.innerWidth >= 1024 ? 3 : window.innerWidth >= 768 ? 2 : 1);
     };
     handleResize();
@@ -31,6 +31,16 @@ const HomeTab: React.FC<HomeTabProps> = ({ membersCount, congsCount, baptisms, c
   }, []);
 
   const totalSlides = Math.max(0, Math.ceil(carouselItems.length / itemsPerView));
+
+  // Auto-play de 5 segundos
+  useEffect(() => {
+    if (totalSlides > 1) {
+      const timer = setInterval(() => {
+        setCurrentSlide(prev => (prev + 1) % totalSlides);
+      }, 5000);
+      return () => clearInterval(timer);
+    }
+  }, [totalSlides]);
 
   const nextSlide = () => {
     if (totalSlides > 1) {
@@ -87,7 +97,6 @@ const HomeTab: React.FC<HomeTabProps> = ({ membersCount, congsCount, baptisms, c
           </button>
         </div>
         <div className="absolute top-0 right-0 w-80 h-80 bg-white/5 rounded-full blur-[100px] -mr-32 -mt-32" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-400/10 rounded-full blur-[80px] -ml-20 -mb-20" />
       </div>
 
       {/* 3. Atalhos Rápidos */}
@@ -99,7 +108,7 @@ const HomeTab: React.FC<HomeTabProps> = ({ membersCount, congsCount, baptisms, c
               <p className="text-slate-400 text-xs md:text-sm font-medium mt-1">A Palavra de Deus sempre com você</p>
            </div>
         </div>
-        <div className="bg-white p-8 md:p-10 rounded-[40px] border border-slate-50 flex items-center gap-6 md:gap-8 group hover:border-blue-200 hover:shadow-xl transition-all cursor-pointer" onClick={() => onNavigate('events')}>
+        <div className="bg-white p-8 md:p-10 rounded-[40px] border border-slate-100 flex items-center gap-6 md:gap-8 group hover:border-blue-200 hover:shadow-xl transition-all cursor-pointer" onClick={() => onNavigate('events')}>
            <div className="bg-blue-600 text-white p-5 md:p-6 rounded-3xl group-hover:scale-110 transition-all shadow-xl"><Calendar size={32}/></div>
            <div>
               <h4 className="font-black text-slate-800 text-lg md:text-xl tracking-tight">Próximos Cultos</h4>
@@ -108,23 +117,21 @@ const HomeTab: React.FC<HomeTabProps> = ({ membersCount, congsCount, baptisms, c
         </div>
       </div>
 
-      {/* 4. Carrossel 9:16 (Inferior) */}
+      {/* 4. Carrossel 9:16 OTIMIZADO (Inferior) */}
       {carouselItems.length > 0 && (
-        <div className="space-y-6 pt-4">
-          <div className="flex items-center justify-between px-2">
+        <div className="space-y-6 pt-4 pb-12">
+          <div className="flex items-center justify-between px-4">
             <div>
               <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Cartazes & Banners</h3>
-              <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">Informações em Destaque</p>
+              <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">Informativos em Formato 9:16</p>
             </div>
-            {totalSlides > 1 && (
-              <div className="flex gap-2">
-                 <button onClick={prevSlide} className="p-2.5 bg-white rounded-full shadow-sm text-slate-400 hover:text-blue-600 hover:bg-slate-50 transition-all border border-slate-100"><ChevronLeft size={20}/></button>
-                 <button onClick={nextSlide} className="p-2.5 bg-white rounded-full shadow-sm text-slate-400 hover:text-blue-600 hover:bg-slate-50 transition-all border border-slate-100"><ChevronRight size={20}/></button>
-              </div>
-            )}
+            <div className="flex gap-2">
+               <button onClick={prevSlide} className="p-3 bg-white rounded-full shadow-md text-slate-600 hover:text-blue-600 hover:bg-slate-50 transition-all border border-slate-100 active:scale-90"><ChevronLeft size={20}/></button>
+               <button onClick={nextSlide} className="p-3 bg-white rounded-full shadow-md text-slate-600 hover:text-blue-600 hover:bg-slate-50 transition-all border border-slate-100 active:scale-90"><ChevronRight size={20}/></button>
+            </div>
           </div>
           
-          <div className="relative overflow-hidden">
+          <div className="relative overflow-hidden px-2">
             <div 
               className="flex transition-transform duration-700 cubic-bezier(0.4, 0, 0.2, 1) gap-4" 
               style={{ transform: `translateX(-${currentSlide * 100}%)` }}
@@ -135,13 +142,20 @@ const HomeTab: React.FC<HomeTabProps> = ({ membersCount, congsCount, baptisms, c
                   className="flex-shrink-0"
                   style={{ width: `calc(${100 / itemsPerView}% - ${(itemsPerView - 1) * 16 / itemsPerView}px)` }}
                 >
-                  <div className="aspect-[9/16] w-full relative group rounded-[32px] overflow-hidden shadow-lg border border-slate-100 bg-slate-200">
-                    <img src={item.imageUrl} alt={item.title || "Banner"} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                  {/* Container 9:16 com fundo escuro e object-contain para não cortar */}
+                  <div className="aspect-[9/16] w-full relative group rounded-[32px] overflow-hidden shadow-xl border border-slate-100 bg-slate-900">
+                    <img 
+                      src={item.imageUrl} 
+                      alt={item.title || "Banner"} 
+                      className="w-full h-full object-contain" 
+                    />
+                    
+                    {/* Overlay apenas no hover para mostrar detalhes se houver */}
                     {(item.title || item.link) && (
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent flex flex-col justify-end p-6 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <h4 className="text-white font-black text-lg tracking-tight leading-tight">{item.title}</h4>
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-6">
+                        {item.title && <h4 className="text-white font-black text-lg tracking-tight leading-tight mb-3">{item.title}</h4>}
                         {item.link && (
-                          <a href={item.link} target="_blank" className="mt-3 inline-block bg-white text-blue-600 w-fit px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-blue-50 transition-all">Ver Detalhes</a>
+                          <a href={item.link} target="_blank" className="bg-white text-blue-600 w-full text-center py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-50 transition-all">Ver Link Relacionado</a>
                         )}
                       </div>
                     )}
@@ -150,11 +164,19 @@ const HomeTab: React.FC<HomeTabProps> = ({ membersCount, congsCount, baptisms, c
               ))}
             </div>
           </div>
-          <div className="flex justify-center gap-1.5 mt-4">
-            {Array.from({ length: totalSlides }).map((_, i) => (
-              <div key={i} className={`h-1 rounded-full transition-all ${currentSlide === i ? 'w-8 bg-blue-600' : 'w-2 bg-slate-200'}`} />
-            ))}
-          </div>
+
+          {/* Indicadores de página */}
+          {totalSlides > 1 && (
+            <div className="flex justify-center gap-2 mt-2">
+              {Array.from({ length: totalSlides }).map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrentSlide(i)}
+                  className={`h-1.5 rounded-full transition-all duration-300 ${currentSlide === i ? 'w-10 bg-blue-600' : 'w-2 bg-slate-200 hover:bg-slate-300'}`}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
