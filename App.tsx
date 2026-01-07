@@ -39,7 +39,33 @@ const App: React.FC = () => {
   const [weeklyCults, setWeeklyCults] = useState<WeeklyCult[]>([]);
   const [notices, setNotices] = useState<ChurchNotice[]>([]);
 
-  // Efeito de Sincronização em Tempo Real (Escuta a Nuvem)
+  // 1. Carregar cache local imediatamente
+  useEffect(() => {
+    const keys = ['members', 'converts', 'baptisms', 'carousel', 'congs', 'deps', 'events', 'media', 'cults', 'notices', 'courses'];
+    keys.forEach(key => {
+      const saved = localStorage.getItem(`ieadban_${key}`);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          switch(key) {
+            case 'members': setMembers(parsed); break;
+            case 'converts': setNewConverts(parsed); break;
+            case 'baptisms': setBaptisms(parsed); break;
+            case 'carousel': setCarouselItems(parsed); break;
+            case 'congs': setCongregations(parsed); break;
+            case 'deps': setDepartments(parsed); break;
+            case 'events': setEvents(parsed); break;
+            case 'media': setMediaItems(parsed); break;
+            case 'cults': setWeeklyCults(parsed); break;
+            case 'notices': setNotices(parsed); break;
+            case 'courses': setCourses(parsed); break;
+          }
+        } catch (e) { console.error("Erro ao carregar cache:", e); }
+      }
+    });
+  }, []);
+
+  // 2. Escuta em Tempo Real
   useEffect(() => {
     const unsubscribes = [
       subscribeToCloud('members', setMembers),
@@ -54,14 +80,35 @@ const App: React.FC = () => {
       subscribeToCloud('notices', setNotices),
       subscribeToCloud('courses', setCourses)
     ];
-
-    return () => unsubscribes.forEach(unsub => unsub());
+    return () => unsubscribes.forEach(unsub => unsub?.());
   }, []);
 
   const handleGlobalUpdate = async (key: string, data: any) => {
     setSyncStatus('syncing');
-    await syncToCloud(key, data);
-    setSyncStatus('online');
+    
+    // UI Instantânea: Atualiza o estado local antes mesmo da rede
+    switch(key) {
+      case 'members': setMembers(data); break;
+      case 'converts': setNewConverts(data); break;
+      case 'baptisms': setBaptisms(data); break;
+      case 'carousel': setCarouselItems(data); break;
+      case 'congs': setCongregations(data); break;
+      case 'deps': setDepartments(data); break;
+      case 'events': setEvents(data); break;
+      case 'media': setMediaItems(data); break;
+      case 'cults': setWeeklyCults(data); break;
+      case 'notices': setNotices(data); break;
+      case 'courses': setCourses(data); break;
+    }
+
+    try {
+      await syncToCloud(key, data);
+    } catch (e) {
+      console.error("Falha ao sincronizar com a nuvem:", e);
+    } finally {
+      // Força a limpeza do status "Sincronizando" após um curto delay
+      setTimeout(() => setSyncStatus('online'), 1000);
+    }
   };
 
   const navItems = [
@@ -90,8 +137,8 @@ const App: React.FC = () => {
             <div>
               <h1 className="font-black text-xl text-slate-800 tracking-tighter">IEADBAN</h1>
               <div className="flex items-center gap-1.5">
-                <div className={`w-1.5 h-1.5 rounded-full ${syncStatus === 'online' ? 'bg-emerald-500' : 'bg-amber-500 animate-ping'}`} />
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                <div className={`w-1.5 h-1.5 rounded-full ${syncStatus === 'online' ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
+                <span className={`text-[9px] font-black uppercase tracking-widest ${syncStatus === 'syncing' ? 'text-amber-500' : 'text-slate-400'}`}>
                   {syncStatus === 'syncing' ? 'Sincronizando...' : 'Nuvem IEADBAN'}
                 </span>
               </div>
@@ -112,13 +159,13 @@ const App: React.FC = () => {
           </nav>
 
           <div className="mt-6 pt-6 border-t border-slate-50">
-            <div className="p-4 bg-slate-50 rounded-2xl flex items-center gap-3 group">
+            <div className="p-4 bg-slate-50 rounded-2xl flex items-center gap-3">
                <div className="bg-white p-2 rounded-lg text-blue-600 shadow-sm">
                  <Cloud size={16} />
                </div>
                <div>
-                 <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Backup Real-Time</p>
-                 <p className="text-[10px] font-bold text-slate-600 leading-tight">Sincronizado via Google</p>
+                 <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Status Global</p>
+                 <p className="text-[10px] font-bold text-slate-600 leading-tight">Backup Real-Time</p>
                </div>
             </div>
           </div>
