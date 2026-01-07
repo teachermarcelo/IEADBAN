@@ -1,6 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
-import { Home, Users, Landmark, BookOpen, Book, Menu, X, Calendar, Layers, Camera, BookType, HeartHandshake, Waves, GraduationCap } from 'lucide-center';
+import { 
+  Home, Users, Landmark, BookOpen, Book, Menu, X, Calendar, Layers, 
+  Camera, BookType, HeartHandshake, Waves, GraduationCap 
+} from 'lucide-react';
 import { Member, Congregation, Department, Event, MediaItem, WeeklyCult, ChurchNotice, TabType, NewConvert, Baptism, CarouselItem, Course } from './types';
 import MembersTab from './components/MembersTab';
 import CongregationsTab from './components/CongregationsTab';
@@ -39,29 +42,33 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
-    const savedMembers = localStorage.getItem('ieadban_members');
-    const savedConverts = localStorage.getItem('ieadban_converts');
-    const savedBaptisms = localStorage.getItem('ieadban_baptisms');
-    const savedCarousel = localStorage.getItem('ieadban_carousel');
-    const savedCongs = localStorage.getItem('ieadban_congs');
-    const savedDeps = localStorage.getItem('ieadban_deps');
-    const savedEvents = localStorage.getItem('ieadban_events');
-    const savedMedia = localStorage.getItem('ieadban_media');
-    const savedCults = localStorage.getItem('ieadban_cults');
-    const savedNotices = localStorage.getItem('ieadban_notices');
-    const savedCourses = localStorage.getItem('ieadban_courses');
-    
-    if (savedMembers) setMembers(JSON.parse(savedMembers));
-    if (savedConverts) setNewConverts(JSON.parse(savedConverts));
-    if (savedBaptisms) setBaptisms(JSON.parse(savedBaptisms));
-    if (savedCarousel) setCarouselItems(JSON.parse(savedCarousel));
-    if (savedCongs) setCongregations(JSON.parse(savedCongs));
-    if (savedDeps) setDepartments(JSON.parse(savedDeps));
-    if (savedEvents) setEvents(JSON.parse(savedEvents));
-    if (savedMedia) setMediaItems(JSON.parse(savedMedia));
-    if (savedCults) setWeeklyCults(JSON.parse(savedCults));
-    if (savedNotices) setNotices(JSON.parse(savedNotices));
-    if (savedCourses) setCourses(JSON.parse(savedCourses));
+    try {
+      const savedMembers = localStorage.getItem('ieadban_members');
+      const savedConverts = localStorage.getItem('ieadban_converts');
+      const savedBaptisms = localStorage.getItem('ieadban_baptisms');
+      const savedCarousel = localStorage.getItem('ieadban_carousel');
+      const savedCongs = localStorage.getItem('ieadban_congs');
+      const savedDeps = localStorage.getItem('ieadban_deps');
+      const savedEvents = localStorage.getItem('ieadban_events');
+      const savedMedia = localStorage.getItem('ieadban_media');
+      const savedCults = localStorage.getItem('ieadban_cults');
+      const savedNotices = localStorage.getItem('ieadban_notices');
+      const savedCourses = localStorage.getItem('ieadban_courses');
+      
+      if (savedMembers) setMembers(JSON.parse(savedMembers));
+      if (savedConverts) setNewConverts(JSON.parse(savedConverts));
+      if (savedBaptisms) setBaptisms(JSON.parse(savedBaptisms));
+      if (savedCarousel) setCarouselItems(JSON.parse(savedCarousel));
+      if (savedCongs) setCongregations(JSON.parse(savedCongs));
+      if (savedDeps) setDepartments(JSON.parse(savedDeps));
+      if (savedEvents) setEvents(JSON.parse(savedEvents));
+      if (savedMedia) setMediaItems(JSON.parse(savedMedia));
+      if (savedCults) setWeeklyCults(JSON.parse(savedCults));
+      if (savedNotices) setNotices(JSON.parse(savedNotices));
+      if (savedCourses) setCourses(JSON.parse(savedCourses));
+    } catch (e) {
+      console.error("Erro ao carregar dados do localStorage", e);
+    }
   }, []);
 
   const saveToStorage = (key: string, data: any) => {
