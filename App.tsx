@@ -1,11 +1,11 @@
 
-import React, { useState, useEffect, useLayoutEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Home, Users, Landmark, BookOpen, Book, Menu, X, Calendar, Layers, 
-  Camera, BookType, HeartHandshake, Waves, GraduationCap, Download, Upload, Cloud, RefreshCw
+  Camera, BookType, HeartHandshake, Waves, GraduationCap, Cloud
 } from 'lucide-react';
 import { Member, Congregation, Department, Event, MediaItem, WeeklyCult, ChurchNotice, TabType, NewConvert, Baptism, CarouselItem, Course } from './types';
-import { syncToCloud } from './services/firebase';
+import { syncToCloud, subscribeToCloud } from './services/firebase';
 import MembersTab from './components/MembersTab';
 import CongregationsTab from './components/CongregationsTab';
 import DevotionalTab from './components/DevotionalTab';
@@ -22,7 +22,7 @@ import CoursesTab from './components/CoursesTab';
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('home');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<'online' | 'syncing' | 'offline'>('online');
+  const [syncStatus, setSyncStatus] = useState<'online' | 'syncing'>('online');
   
   // Estados de Dados
   const [members, setMembers] = useState<Member[]>([]);
@@ -36,58 +36,32 @@ const App: React.FC = () => {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
-  const [weeklyCults, setWeeklyCults] = useState<WeeklyCult[]>([
-    { id: '1', day: 'Terça-feira', name: 'Culto de Doutrina', time: '19:30' },
-    { id: '2', day: 'Quinta-feira', name: 'Culto de Vitória', time: '19:30' },
-    { id: '3', day: 'Sábado', name: 'Culto de Jovens', time: '19:30' },
-    { id: '4', day: 'Domingo', name: 'EBD', time: '09:00' },
-    { id: '5', day: 'Domingo', name: 'Culto de Louvor', time: '19:00' },
-  ]);
+  const [weeklyCults, setWeeklyCults] = useState<WeeklyCult[]>([]);
   const [notices, setNotices] = useState<ChurchNotice[]>([]);
 
-  const loadLocalData = () => {
-    const keys = [
-      ['ieadban_members', setMembers],
-      ['ieadban_converts', setNewConverts],
-      ['ieadban_baptisms', setBaptisms],
-      ['ieadban_carousel', setCarouselItems],
-      ['ieadban_congs', setCongregations],
-      ['ieadban_deps', setDepartments],
-      ['ieadban_events', setEvents],
-      ['ieadban_media', setMediaItems],
-      ['ieadban_cults', setWeeklyCults],
-      ['ieadban_notices', setNotices],
-      ['ieadban_courses', setCourses]
-    ] as const;
+  // Efeito de Sincronização em Tempo Real (Escuta a Nuvem)
+  useEffect(() => {
+    const unsubscribes = [
+      subscribeToCloud('members', setMembers),
+      subscribeToCloud('converts', setNewConverts),
+      subscribeToCloud('baptisms', setBaptisms),
+      subscribeToCloud('carousel', setCarouselItems),
+      subscribeToCloud('congs', setCongregations),
+      subscribeToCloud('deps', setDepartments),
+      subscribeToCloud('events', setEvents),
+      subscribeToCloud('media', setMediaItems),
+      subscribeToCloud('cults', setWeeklyCults),
+      subscribeToCloud('notices', setNotices),
+      subscribeToCloud('courses', setCourses)
+    ];
 
-    keys.forEach(([key, setter]) => {
-      const saved = localStorage.getItem(key);
-      if (saved) {
-        try { setter(JSON.parse(saved)); } catch (e) { console.error(e); }
-      }
-    });
-  };
-
-  useLayoutEffect(() => {
-    loadLocalData();
-    
-    // Escuta sincronização global (via BroadcastChannel para mesma origem)
-    const channel = new BroadcastChannel('ieadban_global_sync');
-    channel.onmessage = (event) => {
-      setSyncStatus('syncing');
-      setTimeout(() => {
-        loadLocalData();
-        setSyncStatus('online');
-      }, 500);
-    };
-    
-    return () => channel.close();
+    return () => unsubscribes.forEach(unsub => unsub());
   }, []);
 
   const handleGlobalUpdate = async (key: string, data: any) => {
     setSyncStatus('syncing');
     await syncToCloud(key, data);
-    setTimeout(() => setSyncStatus('online'), 800);
+    setSyncStatus('online');
   };
 
   const navItems = [
@@ -116,9 +90,9 @@ const App: React.FC = () => {
             <div>
               <h1 className="font-black text-xl text-slate-800 tracking-tighter">IEADBAN</h1>
               <div className="flex items-center gap-1.5">
-                <div className={`w-1.5 h-1.5 rounded-full ${syncStatus === 'online' ? 'bg-emerald-500' : syncStatus === 'syncing' ? 'bg-amber-500 animate-ping' : 'bg-slate-300'}`} />
+                <div className={`w-1.5 h-1.5 rounded-full ${syncStatus === 'online' ? 'bg-emerald-500' : 'bg-amber-500 animate-ping'}`} />
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                  {syncStatus === 'syncing' ? 'Sincronizando...' : 'Nuvem Conectada'}
+                  {syncStatus === 'syncing' ? 'Sincronizando...' : 'Nuvem IEADBAN'}
                 </span>
               </div>
             </div>
@@ -138,13 +112,13 @@ const App: React.FC = () => {
           </nav>
 
           <div className="mt-6 pt-6 border-t border-slate-50">
-            <div className="p-4 bg-slate-50 rounded-2xl flex items-center gap-3 group cursor-help">
-               <div className="bg-white p-2 rounded-lg text-blue-600 shadow-sm group-hover:rotate-12 transition-transform">
+            <div className="p-4 bg-slate-50 rounded-2xl flex items-center gap-3 group">
+               <div className="bg-white p-2 rounded-lg text-blue-600 shadow-sm">
                  <Cloud size={16} />
                </div>
                <div>
-                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter leading-none mb-1">Backup Automático</p>
-                 <p className="text-[10px] font-bold text-slate-600 leading-tight">Dados seguros na nuvem</p>
+                 <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Backup Real-Time</p>
+                 <p className="text-[10px] font-bold text-slate-600 leading-tight">Sincronizado via Google</p>
                </div>
             </div>
           </div>
@@ -164,17 +138,17 @@ const App: React.FC = () => {
           {(() => {
             switch (activeTab) {
               case 'home': return <HomeTab carouselItems={carouselItems} membersCount={members.length} congsCount={congregations.length} baptisms={baptisms} onNavigate={setActiveTab} />;
-              case 'members': return <MembersTab members={members} congregations={congregations} onAdd={(m) => { const n = [...members, m]; setMembers(n); handleGlobalUpdate('members', n); }} onUpdate={(m) => { const n = members.map(p => p.id === m.id ? m : p); setMembers(n); handleGlobalUpdate('members', n); }} onDelete={(id) => { const n = members.filter(p => p.id !== id); setMembers(n); handleGlobalUpdate('members', n); }} />;
-              case 'congregations': return <CongregationsTab congregations={congregations} onAdd={(c) => { const n = [...congregations, c]; setCongregations(n); handleGlobalUpdate('congs', n); }} onUpdate={(c) => { const n = congregations.map(p => p.id === c.id ? c : p); setCongregations(n); handleGlobalUpdate('congs', n); }} onDelete={(id) => { const n = congregations.filter(p => p.id !== id); setCongregations(n); handleGlobalUpdate('congs', n); }} />;
-              case 'departments': return <DepartmentsTab departments={departments} onSave={(d) => { const n = [...departments.filter(x => x.id !== d.id), d]; setDepartments(n); handleGlobalUpdate('deps', n); }} onDelete={(id) => { const n = departments.filter(x => x.id !== id); setDepartments(n); handleGlobalUpdate('deps', n); }} />;
-              case 'events': return <EventsTab carouselItems={carouselItems} onSaveCarouselItem={(item) => { const n = [...carouselItems.filter(x => x.id !== item.id), item]; setCarouselItems(n); handleGlobalUpdate('carousel', n); }} onDeleteCarouselItem={(id) => { const n = carouselItems.filter(x => x.id !== id); setCarouselItems(n); handleGlobalUpdate('carousel', n); }} events={events} weeklyCults={weeklyCults} notices={notices} onSaveEvent={(e) => { const n = [...events.filter(x => x.id !== e.id), e]; setEvents(n); handleGlobalUpdate('events', n); }} onDeleteEvent={(id) => { const n = events.filter(x => x.id !== id); setEvents(n); handleGlobalUpdate('events', n); }} onSaveCult={(c) => { const n = [...weeklyCults.filter(x => x.id !== c.id), c]; setWeeklyCults(n); handleGlobalUpdate('cults', n); }} onDeleteCult={(id) => { const n = weeklyCults.filter(x => x.id !== id); setWeeklyCults(n); handleGlobalUpdate('cults', n); }} onSaveNotice={(notice) => { const n = [...notices.filter(x => x.id !== notice.id), notice]; setNotices(n); handleGlobalUpdate('notices', n); }} onDeleteNotice={(id) => { const n = notices.filter(x => x.id !== id); setNotices(n); handleGlobalUpdate('notices', n); }} onReorderCults={(newList) => { setWeeklyCults(newList); handleGlobalUpdate('cults', newList); }} />;
+              case 'members': return <MembersTab members={members} congregations={congregations} onAdd={(m) => { handleGlobalUpdate('members', [...members, m]); }} onUpdate={(m) => { handleGlobalUpdate('members', members.map(p => p.id === m.id ? m : p)); }} onDelete={(id) => { handleGlobalUpdate('members', members.filter(p => p.id !== id)); }} />;
+              case 'congregations': return <CongregationsTab congregations={congregations} onAdd={(c) => { handleGlobalUpdate('congs', [...congregations, c]); }} onUpdate={(c) => { handleGlobalUpdate('congs', congregations.map(p => p.id === c.id ? c : p)); }} onDelete={(id) => { handleGlobalUpdate('congs', congregations.filter(p => p.id !== id)); }} />;
+              case 'departments': return <DepartmentsTab departments={departments} onSave={(d) => { handleGlobalUpdate('deps', [...departments.filter(x => x.id !== d.id), d]); }} onDelete={(id) => { handleGlobalUpdate('deps', departments.filter(x => x.id !== id)); }} />;
+              case 'events': return <EventsTab carouselItems={carouselItems} onSaveCarouselItem={(item) => { handleGlobalUpdate('carousel', [...carouselItems.filter(x => x.id !== item.id), item]); }} onDeleteCarouselItem={(id) => { handleGlobalUpdate('carousel', carouselItems.filter(x => x.id !== id)); }} events={events} weeklyCults={weeklyCults} notices={notices} onSaveEvent={(e) => { handleGlobalUpdate('events', [...events.filter(x => x.id !== e.id), e]); }} onDeleteEvent={(id) => { handleGlobalUpdate('events', events.filter(x => x.id !== id)); }} onSaveCult={(c) => { handleGlobalUpdate('cults', [...weeklyCults.filter(x => x.id !== c.id), c]); }} onDeleteCult={(id) => { handleGlobalUpdate('cults', weeklyCults.filter(x => x.id !== id)); }} onSaveNotice={(notice) => { handleGlobalUpdate('notices', [...notices.filter(x => x.id !== notice.id), notice]); }} onDeleteNotice={(id) => { handleGlobalUpdate('notices', notices.filter(x => x.id !== id)); }} onReorderCults={(newList) => { handleGlobalUpdate('cults', newList); }} />;
               case 'devotional': return <DevotionalTab />;
               case 'bible': return <BibleTab />;
               case 'reading-plan': return <ReadingPlanTab />;
-              case 'discipleship': return <DiscipleshipTab newConverts={newConverts} congregations={congregations} onSaveConvert={(c) => { const n = [...newConverts.filter(x => x.id !== c.id), c]; setNewConverts(n); handleGlobalUpdate('converts', n); }} onDeleteConvert={(id) => { const n = newConverts.filter(x => x.id !== id); setNewConverts(n); handleGlobalUpdate('converts', n); }} onConvertToMember={(m, id) => { const nm = [...members, m]; setMembers(nm); handleGlobalUpdate('members', nm); const nc = newConverts.filter(x => x.id !== id); setNewConverts(nc); handleGlobalUpdate('converts', nc); }} />;
-              case 'baptisms': return <BaptismsTab baptisms={baptisms} congregations={congregations} onSave={(b) => { const n = [...baptisms.filter(x => x.id !== b.id), b]; setBaptisms(n); handleGlobalUpdate('baptisms', n); }} onDelete={(id) => { const n = baptisms.filter(x => x.id !== id); setBaptisms(n); handleGlobalUpdate('baptisms', n); }} />;
-              case 'courses': return <CoursesTab courses={courses} onSave={(c) => { const n = [...courses.filter(x => x.id !== c.id), c]; setCourses(n); handleGlobalUpdate('courses', n); }} onDelete={(id) => { const n = courses.filter(x => x.id !== id); setCourses(n); handleGlobalUpdate('courses', n); }} />;
-              case 'media': return <MediaTab mediaItems={mediaItems} onSave={(m) => { const n = [...mediaItems.filter(x => x.id !== m.id), m]; setMediaItems(n); handleGlobalUpdate('media', n); }} onDelete={(id) => { const n = mediaItems.filter(x => x.id !== id); setMediaItems(n); handleGlobalUpdate('media', n); }} />;
+              case 'discipleship': return <DiscipleshipTab newConverts={newConverts} congregations={congregations} onSaveConvert={(c) => { handleGlobalUpdate('converts', [...newConverts.filter(x => x.id !== c.id), c]); }} onDeleteConvert={(id) => { handleGlobalUpdate('converts', newConverts.filter(x => x.id !== id)); }} onConvertToMember={(m, id) => { handleGlobalUpdate('members', [...members, m]); handleGlobalUpdate('converts', newConverts.filter(x => x.id !== id)); }} />;
+              case 'baptisms': return <BaptismsTab baptisms={baptisms} congregations={congregations} onSave={(b) => { handleGlobalUpdate('baptisms', [...baptisms.filter(x => x.id !== b.id), b]); }} onDelete={(id) => { handleGlobalUpdate('baptisms', baptisms.filter(x => x.id !== id)); }} />;
+              case 'courses': return <CoursesTab courses={courses} onSave={(c) => { handleGlobalUpdate('courses', [...courses.filter(x => x.id !== c.id), c]); }} onDelete={(id) => { handleGlobalUpdate('courses', courses.filter(x => x.id !== id)); }} />;
+              case 'media': return <MediaTab mediaItems={mediaItems} onSave={(m) => { handleGlobalUpdate('media', [...mediaItems.filter(x => x.id !== m.id), m]); }} onDelete={(id) => { handleGlobalUpdate('media', mediaItems.filter(x => x.id !== id)); }} />;
               default: return <HomeTab carouselItems={carouselItems} membersCount={members.length} congsCount={congregations.length} baptisms={baptisms} onNavigate={setActiveTab} />;
             }
           })()}
